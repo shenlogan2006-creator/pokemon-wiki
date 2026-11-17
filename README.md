@@ -5,7 +5,7 @@ HW1103
 這是一個採用**「資料驅動（Data-Driven）」與「隨插即用（Plug-and-Play）」**架構設計的模組化寶可夢知識庫網站，規劃涵蓋第一至第九世代（#001 - #1025）共 9 大資料模組。
 
 ##GitHub Pages
-
+https://shenlogan2006-creator.github.io/pokemon-wiki/  
 
 ##  核心功能
 - **跨世代模組化架構**：目前實作第一世代（關都地區），並預留第二至第九世代擴充接口。
