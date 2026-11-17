@@ -18,6 +18,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
   <div id="app">
+    <!-- 頂部導覽列 -->
     <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -29,22 +30,42 @@
             <p class="text-xs text-slate-400">全 9 世代模組化圖鑑架構 • 異色切換 • 進化鏈 • 戰力排行</p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="hidden sm:inline-block text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-            已啟用模組：<strong class="text-white">{{ loadedGenCount }}</strong> / 9 世代
-          </span>
+
+        <!-- 右側功能按鈕：模式切換 + 異色開關 -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- 圖鑑模式 / 戰力排行榜切換 -->
+          <div class="bg-slate-800 p-1 rounded-full border border-slate-700 flex items-center">
+            <button @click="setViewMode('dex')"
+              :class="[
+                'px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all',
+                viewMode === 'dex' ? 'bg-red-600 text-white shadow' : 'text-slate-300 hover:text-white'
+              ]">
+              📖 圖鑑總覽
+            </button>
+            <button @click="setViewMode('ranking')"
+              :class="[
+                'px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all',
+                viewMode === 'ranking' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
+              ]">
+              🏆 戰力排行榜
+            </button>
+          </div>
+
+          <!-- 全域異色開關 -->
           <button @click="globalShiny = !globalShiny"
             :class="[
-              'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow',
+              'flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all shadow',
               globalShiny
-                ? 'bg-amber-400 text-slate-900 ring-2 ring-amber-200'
+                ? 'bg-amber-300 text-slate-900 ring-2 ring-amber-200'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
             ]">
             <span>✨</span>
-            <span>{{ globalShiny ? '異色型態：開啟' : '異色型態：關閉' }}</span>
+            <span>{{ globalShiny ? '異色：ON' : '異色：OFF' }}</span>
           </button>
         </div>
       </div>
+
+      <!-- 全 9 世代模組切換頁籤 -->
       <div class="bg-slate-800 border-t border-slate-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto gap-2 py-2.5">
           <button v-for="gen in generationTabs" :key="gen.key"
@@ -71,14 +92,18 @@
       </div>
     </header>
 
+    <!-- 控制與篩選工具列 -->
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-        <div class="md:col-span-4">
+        <!-- 搜尋框 -->
+        <div :class="viewMode === 'ranking' ? 'md:col-span-4' : 'md:col-span-7'">
           <label class="block text-xs font-bold text-slate-500 uppercase mb-1">搜尋寶可夢 / 招式</label>
           <input v-model="searchQuery" type="text" placeholder="輸入名稱、編號或招式 (如: 噴射火焰)..."
             class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
         </div>
-        <div class="md:col-span-3">
+
+        <!-- 屬性篩選 -->
+        <div :class="viewMode === 'ranking' ? 'md:col-span-3' : 'md:col-span-5'">
           <label class="block text-xs font-bold text-slate-500 uppercase mb-1">屬性篩選</label>
           <select v-model="selectedType"
             class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500">
@@ -86,15 +111,23 @@
             <option v-for="t in allTypes" :key="t" :value="t">{{ t }}屬性</option>
           </select>
         </div>
-        <div class="md:col-span-5">
-          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">戰力排行 / 排序依據</label>
+
+        <!-- 戰力排行指標選擇 (僅在戰力排行榜模式顯示) -->
+        <div v-if="viewMode === 'ranking'" class="md:col-span-5">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-amber-700 uppercase">排行指標選擇</label>
+            <button @click="sortDesc = !sortDesc"
+              class="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+              {{ sortDesc ? '排序：高 ➔ 低 ↓' : '排序：低 ➔ 高 ↑' }}
+            </button>
+          </div>
           <div class="flex flex-wrap gap-1.5">
-            <button v-for="opt in sortOptions" :key="opt.key"
-              @click="sortBy = opt.key"
+            <button v-for="opt in rankMetrics" :key="opt.key"
+              @click="rankBy = opt.key"
               :class="[
-                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
-                sortBy === opt.key
-                  ? 'bg-red-600 text-white shadow-sm'
+                'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all',
+                rankBy === opt.key
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               ]">
               {{ opt.label }}
@@ -102,49 +135,188 @@
           </div>
         </div>
       </div>
-      <div class="flex items-center justify-between mt-4 px-1 text-sm text-slate-500">
+
+      <!-- 狀態列 -->
+      <div class="flex flex-wrap items-center justify-between mt-4 px-1 text-sm text-slate-500 gap-2">
         <div>
-          目前檢視：<strong class="text-slate-800">{{ currentGenInfo.label }}</strong>（{{ currentGenInfo.range }}），共顯示 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻寶可夢
-          <span v-if="sortBy !== 'id'" class="ml-2 inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
-            🏆 戰力排行榜模式 ({{ currentSortLabel }})
-          </span>
+          目前檢視：<strong class="text-slate-800">{{ currentGenInfo.label }}</strong>（已啟用 {{ loadedGenCount }}/9 世代）• 共 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻
+        </div>
+        <div v-if="viewMode === 'ranking'" class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-3 py-1 rounded-full">
+          🏆 依「{{ currentRankLabel }}」{{ sortDesc ? '由高至低' : '由低至高' }}排行（相對於本榜最高值 {{ maxStatInList }}）
         </div>
       </div>
     </section>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-16">
+    <!-- ========================================================= -->
+    <!-- 模式 A：🏆 戰力排行榜專屬視圖 (TOP 3 頒獎台 + 完整戰力榜單) -->
+    <!-- ========================================================= -->
+    <main v-if="viewMode === 'ranking'" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-16 space-y-6">
       <div v-if="processedPokemon.length === 0" class="text-center py-20 bg-white rounded-2xl border border-slate-200">
         <p class="text-slate-400 text-lg">找不到符合條件的寶可夢，請嘗試其他關鍵字或屬性。</p>
       </div>
+
+      <template v-else>
+        <!-- TOP 3 戰力王座卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div v-for="(poke, idx) in processedPokemon.slice(0, 3)" :key="poke.id"
+            @click="openModal(poke)"
+            :class="[
+              'poke-float cursor-pointer rounded-2xl p-5 border-2 shadow-md hover:shadow-xl transition-all relative overflow-hidden bg-white flex items-center gap-4',
+              idx === 0 ? 'border-amber-400 bg-gradient-to-br from-amber-50/80 via-white to-white' :
+              idx === 1 ? 'border-slate-300 bg-gradient-to-br from-slate-100/80 via-white to-white' :
+                          'border-amber-700/40 bg-gradient-to-br from-orange-50/60 via-white to-white'
+            ]">
+            <!-- 獎牌標章 -->
+            <div :class="[
+              'w-11 h-11 rounded-2xl flex flex-col items-center justify-center font-black shrink-0 shadow-sm',
+              idx === 0 ? 'bg-amber-400 text-slate-950' :
+              idx === 1 ? 'bg-slate-300 text-slate-800' :
+                          'bg-amber-700 text-white'
+            ]">
+              <span class="text-[10px] leading-none">TOP</span>
+              <span class="text-lg leading-tight">{{ idx + 1 }}</span>
+            </div>
+
+            <!-- 立繪 -->
+            <img :src="getArtworkUrl(poke.id, globalShiny)" :alt="poke.name"
+              class="w-24 h-24 object-contain drop-shadow shrink-0" />
+
+            <!-- 數據摘要 -->
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-mono text-slate-400">No.{{ String(poke.id).padStart(3, '0') }}</div>
+              <h3 class="text-lg font-black text-slate-900 truncate">{{ poke.name }}</h3>
+              <div class="flex gap-1 mt-1">
+                <span v-for="t in poke.types" :key="t"
+                  :class="['px-2 py-0.5 rounded text-[11px] font-bold text-white', getTypeColor(t)]">
+                  {{ t }}
+                </span>
+              </div>
+              <div class="mt-2.5 flex items-baseline gap-1.5">
+                <span class="text-xs font-bold text-slate-500">{{ currentRankLabel }}：</span>
+                <span class="text-2xl font-mono font-black text-red-600">{{ getMetricValue(poke) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 完整戰力排行榜列表 (Table View，數據對比最清晰) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-slate-900 text-white">
+                <tr>
+                  <th class="px-4 py-3.5 text-center font-bold w-16">名次</th>
+                  <th class="px-4 py-3.5 text-left font-bold">寶可夢</th>
+                  <th class="px-4 py-3.5 text-left font-bold">屬性</th>
+                  <th class="px-4 py-3.5 text-left font-bold w-64">{{ currentRankLabel }} 戰力條</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">HP</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">攻擊</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">防禦</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">特攻</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">特防</th>
+                  <th class="px-3 py-3.5 text-right font-bold hidden lg:table-cell">速度</th>
+                  <th class="px-4 py-3.5 text-right font-bold text-amber-300">總和 BST</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr v-for="(poke, index) in processedPokemon" :key="poke.id"
+                  @click="openModal(poke)"
+                  class="hover:bg-amber-50/60 cursor-pointer transition-colors">
+                  <!-- 名次 -->
+                  <td class="px-4 py-3 text-center">
+                    <span :class="[
+                      'inline-flex items-center justify-center w-7 h-7 rounded-lg font-mono font-black text-xs',
+                      index === 0 ? 'bg-amber-400 text-slate-950' :
+                      index === 1 ? 'bg-slate-200 text-slate-800' :
+                      index === 2 ? 'bg-amber-700 text-white' :
+                      'bg-slate-100 text-slate-500'
+                    ]">
+                      {{ index + 1 }}
+                    </span>
+                  </td>
+
+                  <!-- 圖示與名稱 -->
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                      <img :src="getArtworkUrl(poke.id, globalShiny)" :alt="poke.name" class="w-11 h-11 object-contain" />
+                      <div>
+                        <div class="font-bold text-slate-900">{{ poke.name }}</div>
+                        <div class="text-xs font-mono text-slate-400">No.{{ String(poke.id).padStart(3, '0') }}</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- 屬性 -->
+                  <td class="px-4 py-3">
+                    <div class="flex gap-1">
+                      <span v-for="t in poke.types" :key="t"
+                        :class="['px-2 py-0.5 rounded text-xs font-bold text-white', getTypeColor(t)]">
+                        {{ t }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- 動態戰力長條圖 (依當前排行指標的相對比例顯示) -->
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2.5">
+                      <span class="font-mono font-black text-base text-slate-900 w-10 text-right">
+                        {{ getMetricValue(poke) }}
+                      </span>
+                      <div class="flex-1 bg-slate-100 h-2.5 rounded-full overflow-hidden min-w-[100px]">
+                        <div class="h-full rounded-full transition-all duration-500"
+                          :class="index === 0 ? 'bg-amber-500' : index < 3 ? 'bg-red-500' : 'bg-indigo-500'"
+                          :style="{ width: `${Math.round((getMetricValue(poke) / maxStatInList) * 100)}%` }">
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- 六維明細 (大螢幕直接一覽無遺) -->
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='hp'}">{{ poke.stats.hp }}</td>
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='atk'}">{{ poke.stats.atk }}</td>
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='def'}">{{ poke.stats.def }}</td>
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='spa'}">{{ poke.stats.spa }}</td>
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='spd'}">{{ poke.stats.spd }}</td>
+                  <td class="px-3 py-3 text-right font-mono text-slate-600 hidden lg:table-cell" :class="{'font-black text-red-600': rankBy==='spe'}">{{ poke.stats.spe }}</td>
+                  <td class="px-4 py-3 text-right font-mono font-black text-slate-900" :class="{'text-red-600': rankBy==='bst'}">{{ poke.bst }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- 模式 B：📖 圖鑑總覽卡片網格 (依圖鑑編號排列)               -->
+    <!-- ========================================================= -->
+    <main v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-16">
+      <div v-if="processedPokemon.length === 0" class="text-center py-20 bg-white rounded-2xl border border-slate-200">
+        <p class="text-slate-400 text-lg">找不到符合條件的寶可夢，請嘗試其他關鍵字或屬性。</p>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        <div v-for="(poke, index) in processedPokemon" :key="poke.id"
+        <div v-for="poke in processedPokemon" :key="poke.id"
           @click="openModal(poke)"
           class="poke-float cursor-pointer bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col relative group">
-          <div v-if="sortBy !== 'id'"
-            :class="[
-              'absolute top-3 left-3 z-10 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm',
-              index === 0 ? 'bg-amber-400 text-slate-900' :
-              index === 1 ? 'bg-slate-300 text-slate-800' :
-              index === 2 ? 'bg-amber-700 text-white' :
-              'bg-slate-800/80 text-white'
-            ]">
-            #{{ index + 1 }} 戰力
-          </div>
+          
+          <!-- 圖鑑編號 (僅顯示一次，乾淨不重複) -->
           <div class="pt-4 px-5 flex justify-between items-center">
-            <span class="text-xs font-mono font-bold text-slate-400">
-              {{ sortBy === 'id' ? `#${String(poke.id).padStart(4, '0')}` : '' }}
+            <span class="text-xs font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+              No.{{ String(poke.id).padStart(3, '0') }}
             </span>
-            <span class="text-xs font-mono font-bold text-slate-400">
-              No.{{ String(poke.id).padStart(4, '0') }}
-            </span>
-          </div>
-          <div class="relative h-44 flex items-center justify-center p-3 bg-gradient-to-b from-slate-50 to-white">
-            <img :src="getArtworkUrl(poke.id, globalShiny)" :alt="poke.name"
-              class="h-36 w-36 object-contain drop-shadow-md transition-transform duration-300" loading="lazy" />
-            <span v-if="globalShiny" class="absolute bottom-2 right-4 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+            <span v-if="globalShiny" class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
               ✨ 異色
             </span>
           </div>
+
+          <!-- 官方立繪 -->
+          <div class="relative h-44 flex items-center justify-center p-3 bg-gradient-to-b from-slate-50 to-white">
+            <img :src="getArtworkUrl(poke.id, globalShiny)" :alt="poke.name"
+              class="h-36 w-36 object-contain drop-shadow-md transition-transform duration-300" loading="lazy" />
+          </div>
+
+          <!-- 基本資訊與屬性 -->
           <div class="p-5 pt-2 flex-1 flex flex-col justify-between">
             <div>
               <div class="flex items-baseline justify-between">
@@ -154,6 +326,8 @@
                 <span class="text-xs text-slate-400 font-medium">{{ poke.enName }}</span>
               </div>
               <p class="text-xs text-slate-500 mt-0.5">{{ poke.category }}</p>
+
+              <!-- 屬性標籤 -->
               <div class="flex gap-1.5 mt-3">
                 <span v-for="t in poke.types" :key="t"
                   :class="['px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-sm', getTypeColor(t)]">
@@ -161,19 +335,17 @@
                 </span>
               </div>
             </div>
+
+            <!-- 種族值總和摘要 -->
             <div class="mt-4 pt-3 border-t border-slate-100">
               <div class="flex justify-between items-center text-xs mb-1.5">
-                <span class="text-slate-500 font-semibold">
-                  {{ sortBy === 'id' || sortBy === 'bst' ? '種族值總和 (BST)' : currentSortLabel }}
-                </span>
-                <span class="font-mono font-black text-sm text-slate-800">
-                  {{ sortBy === 'id' || sortBy === 'bst' ? poke.bst : poke.stats[sortBy] }}
-                </span>
+                <span class="text-slate-500 font-semibold">種族值總和 (BST)</span>
+                <span class="font-mono font-black text-sm text-slate-800">{{ poke.bst }}</span>
               </div>
               <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-500"
-                  :class="getStatBarColor(sortBy === 'id' || sortBy === 'bst' ? poke.bst / 6 : poke.stats[sortBy])"
-                  :style="{ width: getStatBarWidth(sortBy === 'id' || sortBy === 'bst' ? poke.bst : poke.stats[sortBy], sortBy === 'id' || sortBy === 'bst' ? 720 : 200) }">
+                  :class="getStatBarColor(poke.bst / 6)"
+                  :style="{ width: getStatBarWidth(poke.bst, 720) }">
                 </div>
               </div>
             </div>
@@ -182,14 +354,17 @@
       </div>
     </main>
 
+    <!-- 寶可夢詳情彈窗 (進化鏈 + 異色切換 + 六維種族值 + 招式列表) -->
     <div v-if="activePokemon" @click.self="activePokemon = null"
       class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+        
         <div class="relative bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 sm:p-8 rounded-t-3xl">
           <button @click="activePokemon = null"
             class="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold">
             ✕
           </button>
+
           <div class="flex flex-col sm:flex-row items-center gap-6">
             <div class="relative flex flex-col items-center">
               <div class="w-44 h-44 bg-white/10 rounded-2xl p-3 flex items-center justify-center">
@@ -204,9 +379,10 @@
                 {{ modalShiny ? '✨ 目前為異色型態 (點擊切回)' : '切換查看異色型態 ✨' }}
               </button>
             </div>
+
             <div class="flex-1 text-center sm:text-left">
               <div class="flex items-center justify-center sm:justify-start gap-2 text-slate-400 font-mono text-sm font-bold">
-                <span>No.{{ String(activePokemon.id).padStart(4, '0') }}</span>
+                <span>No.{{ String(activePokemon.id).padStart(3, '0') }}</span>
                 <span>•</span>
                 <span>{{ activePokemon.category }}</span>
               </div>
@@ -228,6 +404,7 @@
         </div>
 
         <div class="p-6 sm:p-8 space-y-8">
+          <!-- 1. 進化鏈 -->
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">
               🧬 進化鏈 (Evolution Chain)
@@ -240,7 +417,7 @@
                     evo.id === activePokemon.id ? 'bg-white shadow-md ring-2 ring-red-500' : 'hover:bg-white/80'
                   ]">
                   <img :src="getArtworkUrl(evo.id, modalShiny)" :alt="evo.name" class="w-20 h-20 object-contain" />
-                  <span class="text-xs font-mono text-slate-400 mt-1">#{{ String(evo.id).padStart(4, '0') }}</span>
+                  <span class="text-xs font-mono text-slate-400 mt-1">#{{ String(evo.id).padStart(3, '0') }}</span>
                   <span class="text-sm font-bold text-slate-800">{{ evo.name }}</span>
                   <span class="mt-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
                     {{ evo.condition }}
@@ -253,6 +430,7 @@
             </div>
           </div>
 
+          <!-- 2. 六維種族值 -->
           <div>
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-sm font-black uppercase tracking-wider text-slate-400">
@@ -278,6 +456,7 @@
             </div>
           </div>
 
+          <!-- 3. 代表招式列表 -->
           <div>
             <h3 class="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">
               ⚔️ 代表招式列表 (Signature Moves)
@@ -316,9 +495,9 @@
     </div>
   </div>
 
+  <!-- 世代資料模組掛載區 -->
   <script src="./data/gen1.js"></script>
   <!-- <script src="./data/gen2.js"></script> -->
-  <!-- <script src="./data/gen3.js"></script> -->
 
   <script>
     const { createApp, ref, computed } = Vue;
@@ -347,20 +526,21 @@
 
     createApp({
       setup() {
+        const viewMode = ref('dex'); // 'dex' | 'ranking'
         const selectedGen = ref('gen1');
         const globalShiny = ref(false);
         const searchQuery = ref('');
         const selectedType = ref('ALL');
-        const sortBy = ref('id');
+        const rankBy = ref('bst');
+        const sortDesc = ref(true);
         const activePokemon = ref(null);
         const modalShiny = ref(false);
 
         const allTypes = Object.keys(TYPE_COLORS);
 
-        const sortOptions = [
-          { key: 'id',  label: '圖鑑編號' },
+        const rankMetrics = [
           { key: 'bst', label: '種族值總和 (BST)' },
-          { key: 'hp',  label: 'HP' },
+          { key: 'hp',  label: 'HP 生命' },
           { key: 'atk', label: '攻擊' },
           { key: 'def', label: '防禦' },
           { key: 'spa', label: '特攻' },
@@ -376,6 +556,10 @@
           { key: 'spd', label: '特防 SpD' },
           { key: 'spe', label: '速度 Spe' }
         ];
+
+        const setViewMode = (mode) => {
+          viewMode.value = mode;
+        };
 
         const generationTabs = computed(() => {
           const db = window.POKEMON_DB || {};
@@ -398,9 +582,9 @@
           return GENERATIONS_META.find(g => g.key === selectedGen.value) || GENERATIONS_META[1];
         });
 
-        const currentSortLabel = computed(() => {
-          const found = sortOptions.find(o => o.key === sortBy.value);
-          return found ? found.label : '';
+        const currentRankLabel = computed(() => {
+          const found = rankMetrics.find(o => o.key === rankBy.value);
+          return found ? found.label : '種族值總和 (BST)';
         });
 
         const allPokemonList = computed(() => {
@@ -417,6 +601,10 @@
           }));
         });
 
+        const getMetricValue = (poke) => {
+          return rankBy.value === 'bst' ? poke.bst : poke.stats[rankBy.value];
+        };
+
         const processedPokemon = computed(() => {
           const q = searchQuery.value.trim().toLowerCase();
           let filtered = allPokemonList.value.filter(p => {
@@ -429,11 +617,20 @@
             return matchType && matchQuery;
           });
 
+          if (viewMode.value === 'dex') {
+            return [...filtered].sort((a, b) => a.id - b.id);
+          }
+
           return [...filtered].sort((a, b) => {
-            if (sortBy.value === 'id') return a.id - b.id;
-            if (sortBy.value === 'bst') return b.bst - a.bst;
-            return b.stats[sortBy.value] - a.stats[sortBy.value];
+            const diff = getMetricValue(b) - getMetricValue(a);
+            return sortDesc.value ? diff : -diff;
           });
+        });
+
+        // 動態取得目前榜單中的最高值，讓進度條比例更直覺
+        const maxStatInList = computed(() => {
+          if (processedPokemon.value.length === 0) return 100;
+          return Math.max(...processedPokemon.value.map(p => getMetricValue(p)));
         });
 
         const getArtworkUrl = (id, isShiny) => {
@@ -470,11 +667,12 @@
         };
 
         return {
-          generationTabs, loadedGenCount, currentGenInfo, selectedGen, globalShiny,
-          searchQuery, selectedType, sortBy, allTypes, sortOptions, statDefinitions,
-          currentSortLabel, processedPokemon, activePokemon, modalShiny,
-          getArtworkUrl, getTypeColor, getStatBarWidth, getStatBarColor,
-          openModal, jumpToPokemon
+          viewMode, setViewMode, generationTabs, loadedGenCount, currentGenInfo,
+          selectedGen, globalShiny, searchQuery, selectedType, rankBy, sortDesc,
+          allTypes, rankMetrics, statDefinitions, currentRankLabel,
+          processedPokemon, maxStatInList, getMetricValue,
+          activePokemon, modalShiny, getArtworkUrl, getTypeColor,
+          getStatBarWidth, getStatBarColor, openModal, jumpToPokemon
         };
       }
     }).mount('#app');
