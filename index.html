@@ -88,7 +88,7 @@
       </div>
     </header>
 
-    <!-- 尚未建立資料模組的世代引導看板（點擊 Gen 2 ~ Gen 9 時顯示） -->
+    <!-- 尚未建立資料模組的世代引導看板 -->
     <section v-if="!currentGenTab.isLoaded" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div class="bg-white rounded-3xl border-2 border-dashed border-slate-300 p-8 sm:p-10 text-center shadow-sm">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 mb-4">
@@ -98,7 +98,7 @@
           {{ currentGenTab.label }}模組尚未載入
         </h2>
         <p class="text-slate-500 text-sm max-w-xl mx-auto leading-relaxed mb-6">
-          依據 <code class="bg-slate-100 text-red-600 px-1.5 py-0.5 rounded font-mono">AGENTS.md</code> 規範，本專案採用「一世代一檔案」隔離設計。只需請 AI 依照規範建立 <code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">data/{{ currentGenTab.key }}.js</code> 並引入，此分頁即會自動啟用！
+          依據 <code class="bg-slate-100 text-red-600 px-1.5 py-0.5 rounded font-mono">AGENTS.md</code> 規範，每個世代的資料與自動補全邏輯皆封裝於獨立的 <code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">data/{{ currentGenTab.key }}.js</code> 模組中。只需請 AI 建立該檔案並引入，此分頁即會自動啟用！
         </p>
 
         <div class="bg-slate-900 text-left rounded-2xl p-5 max-w-2xl mx-auto text-xs sm:text-sm text-slate-200 font-mono relative">
@@ -109,7 +109,7 @@
             </button>
           </div>
           <p class="leading-relaxed text-emerald-300">
-            請閱讀專案中的 AGENTS.md，嚴格依照第 4 節 Data Schema 與第 5 節 SOP，為我建立 {{ currentGenTab.label }}（{{ currentGenTab.range }}）的 data/{{ currentGenTab.key }}.js 資料模組，並掛載至 index.html。
+            請閱讀專案中的 AGENTS.md，嚴格依照第 4 節 Data Schema、自動補全規範與第 5 節 SOP，為我建立 {{ currentGenTab.label }}（{{ currentGenTab.range }}）的 data/{{ currentGenTab.key }}.js 資料模組，並掛載至 index.html。
           </p>
         </div>
 
@@ -165,8 +165,8 @@
         <div class="flex flex-wrap items-center justify-between mt-4 px-1 text-sm text-slate-500 gap-2">
           <div>
             目前檢視：<strong class="text-slate-800">{{ currentGenTab.label }}</strong>（{{ currentGenTab.range }}）• 顯示 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻寶可夢
-            <span v-if="isLoadingApi" class="ml-2 text-xs text-indigo-600 font-bold animate-pulse">
-              ⏳ 正在同步完整 151 隻圖鑑數據...
+            <span v-if="isHydrating" class="ml-2 text-xs text-indigo-600 font-bold animate-pulse">
+              ⏳ 正在執行 {{ currentGenTab.key }}.js 模組自動補全...
             </span>
           </div>
           <div v-if="viewMode === 'ranking'" class="text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-3 py-1 rounded-full">
@@ -498,7 +498,7 @@
     </div>
   </div>
 
-  <!-- 載入本地資料檔（本地撰寫的詳盡資料優先顯示） -->
+  <!-- 載入各世代資料模組（每個模組各自管理其資料與自動補全邏輯） -->
   <script src="./data/gen1.js"></script>
 
   <script>
@@ -525,12 +525,6 @@
       '惡': 'bg-neutral-800', '鋼': 'bg-slate-500', '妖精': 'bg-rose-400'
     };
 
-    const TYPE_EN_TO_ZH = {
-      normal: '一般', fire: '火', water: '水', electric: '電', grass: '草', ice: '冰',
-      fighting: '格鬥', poison: '毒', ground: '地面', flying: '飛行', psychic: '超能力',
-      bug: '蟲', rock: '岩石', ghost: '幽靈', dragon: '龍', dark: '惡', steel: '鋼', fairy: '妖精'
-    };
-
     createApp({
       setup() {
         const viewMode = ref('dex');
@@ -542,7 +536,7 @@
         const sortDesc = ref(true);
         const activePokemon = ref(null);
         const modalShiny = ref(false);
-        const isLoadingApi = ref(false);
+        const isHydrating = ref(false);
         const copied = ref(false);
 
         const dbStore = reactive({ ...(window.POKEMON_DB || {}) });
@@ -568,65 +562,30 @@
           { key: 'spe', label: '速度 Spe' }
         ];
 
-        // 自動補齊第一世代完整 151 隻（本地 data/gen1.js 優先，其餘自動由 PokeAPI 補全）
-        const hydrateGen1Full151 = async () => {
-          isLoadingApi.value = true;
+        // 通用模組執行器：自動呼叫各 data/gen{N}.js 註冊的補全函式
+        const runModuleHydrators = async () => {
+          const hydrators = window.POKEMON_HYDRATORS || {};
+          const keys = Object.keys(hydrators);
+          if (keys.length === 0) return;
+
+          isHydrating.value = true;
           try {
-            const localMap = new Map((dbStore.gen1 || []).map(p => [p.id, p]));
-            const ids = Array.from({ length: 151 }, (_, i) => i + 1);
-            const missingIds = ids.filter(id => !localMap.has(id));
-
-            const batchSize = 30;
-            for (let i = 0; i < missingIds.length; i += batchSize) {
-              const batch = missingIds.slice(i, i + batchSize);
-              const results = await Promise.all(batch.map(async (id) => {
-                const [pokeRes, specRes] = await Promise.all([
-                  fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json()),
-                  fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r => r.json())
-                ]);
-                const zhNameObj = specRes.names.find(n => n.language.name === 'zh-Hant') || specRes.names.find(n => n.language.name === 'zh-Hans');
-                const zhGenusObj = specRes.genera.find(g => g.language.name === 'zh-Hant') || specRes.genera.find(g => g.language.name === 'zh-Hans');
-                const zhFlavorObj = specRes.flavor_text_entries.find(f => f.language.name === 'zh-Hant') || specRes.flavor_text_entries.find(f => f.language.name === 'zh-Hans');
-
-                const statsObj = { hp: 50, atk: 50, def: 50, spa: 50, spd: 50, spe: 50 };
-                pokeRes.stats.forEach(s => {
-                  const mapKey = { hp: 'hp', attack: 'atk', defense: 'def', 'special-attack': 'spa', 'special-defense': 'spd', speed: 'spe' }[s.stat.name];
-                  if (mapKey) statsObj[mapKey] = s.base_stat;
+            for (const key of keys) {
+              if (typeof hydrators[key] === 'function') {
+                await hydrators[key]((updatedList) => {
+                  dbStore[key] = updatedList;
                 });
-
-                const sampleMoves = pokeRes.moves.slice(0, 4).map(m => ({
-                  name: m.move.name.replace(/-/g, ' ').toUpperCase(),
-                  type: TYPE_EN_TO_ZH[pokeRes.types[0].type.name] || '一般',
-                  category: '特殊',
-                  power: 80,
-                  learnMethod: '等級 / 招式機'
-                }));
-
-                return {
-                  id,
-                  name: zhNameObj ? zhNameObj.name : pokeRes.name,
-                  enName: pokeRes.name.charAt(0).toUpperCase() + pokeRes.name.slice(1),
-                  types: pokeRes.types.map(t => TYPE_EN_TO_ZH[t.type.name] || '一般'),
-                  category: zhGenusObj ? zhGenusObj.genus : '關都寶可夢',
-                  stats: statsObj,
-                  evolutions: [{ id, name: zhNameObj ? zhNameObj.name : pokeRes.name, condition: '關都圖鑑登錄' }],
-                  moves: sampleMoves.length ? sampleMoves : [{ name: '撞擊', type: '一般', category: '物理', power: 40, learnMethod: 'Lv.1' }],
-                  description: zhFlavorObj ? zhFlavorObj.flavor_text.replace(/\s+/g, '') : '關都地區發現的寶可夢。'
-                };
-              }));
-
-              results.forEach(item => localMap.set(item.id, item));
-              dbStore.gen1 = Array.from(localMap.values()).sort((a, b) => a.id - b.id);
+              }
             }
           } catch (e) {
-            console.warn('API 補齊略過，僅顯示本地資料:', e);
+            console.warn('模組補全略過:', e);
           } finally {
-            isLoadingApi.value = false;
+            isHydrating.value = false;
           }
         };
 
         onMounted(() => {
-          hydrateGen1Full151();
+          runModuleHydrators();
         });
 
         const generationTabs = computed(() => {
@@ -719,7 +678,7 @@
         };
 
         const copyPrompt = () => {
-          const text = `請閱讀專案中的 AGENTS.md，嚴格依照第 4 節 Data Schema 與第 5 節 SOP，為我建立 ${currentGenTab.value.label}（${currentGenTab.value.range}）的 data/${currentGenTab.value.key}.js 資料模組，並掛載至 index.html。`;
+          const text = `請閱讀專案中的 AGENTS.md，嚴格依照第 4 節 Data Schema、自動補全規範與第 5 節 SOP，為我建立 ${currentGenTab.value.label}（${currentGenTab.value.range}）的 data/${currentGenTab.value.key}.js 資料模組，並掛載至 index.html。`;
           navigator.clipboard.writeText(text);
           copied.value = true;
           setTimeout(() => { copied.value = false; }, 2000);
@@ -727,7 +686,7 @@
 
         return {
           viewMode, generationTabs, currentGenTab, selectedGen, globalShiny,
-          searchQuery, selectedType, rankBy, sortDesc, isLoadingApi, copied,
+          searchQuery, selectedType, rankBy, sortDesc, isHydrating, copied,
           allTypes, rankMetrics, statDefinitions, currentRankLabel,
           processedPokemon, maxStatInList, getMetricValue,
           activePokemon, modalShiny, getArtworkUrl, getTypeColor,
