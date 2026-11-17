@@ -31,6 +31,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
+          <!-- 圖鑑總覽 / 戰力排行榜切換 -->
           <div class="bg-slate-800 p-1 rounded-full border border-slate-700 flex items-center">
             <button @click="viewMode = 'dex'"
               :class="[
@@ -48,6 +49,7 @@
             </button>
           </div>
 
+          <!-- 全域異色開關 -->
           <button @click="globalShiny = !globalShiny"
             :class="[
               'flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all shadow',
@@ -61,7 +63,7 @@
         </div>
       </div>
 
-      <!-- 全 9 世代模組切換頁籤（全部開放點擊切換） -->
+      <!-- 世代切換按鈕列（Gen 1 ~ Gen 9） -->
       <div class="bg-slate-800 border-t border-slate-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto gap-2 py-2.5">
           <button v-for="gen in generationTabs" :key="gen.key"
@@ -79,7 +81,7 @@
               {{ gen.count }} 隻
             </span>
             <span v-else class="text-[10px] bg-slate-900/70 text-slate-400 px-1.5 py-0.5 rounded">
-              未建立模組
+              待擴充
             </span>
           </button>
         </div>
@@ -162,7 +164,7 @@
 
         <div class="flex flex-wrap items-center justify-between mt-4 px-1 text-sm text-slate-500 gap-2">
           <div>
-            目前檢視：<strong class="text-slate-800">{{ currentGenTab.label }}</strong> • 顯示 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻寶可夢
+            目前檢視：<strong class="text-slate-800">{{ currentGenTab.label }}</strong>（{{ currentGenTab.range }}）• 顯示 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻寶可夢
             <span v-if="isLoadingApi" class="ml-2 text-xs text-indigo-600 font-bold animate-pulse">
               ⏳ 正在同步完整 151 隻圖鑑數據...
             </span>
@@ -511,8 +513,7 @@
       { key: 'gen6', label: '第六世代：卡洛斯',   range: '#650 - #721',  badgeColor: 'bg-blue-600' },
       { key: 'gen7', label: '第七世代：阿羅拉',   range: '#722 - #809',  badgeColor: 'bg-orange-500' },
       { key: 'gen8', label: '第八世代：伽勒爾',   range: '#810 - #905',  badgeColor: 'bg-rose-600' },
-      { key: 'gen9', label: '第九世代：帕底亞',   range: '#906 - #1025', badgeColor: 'bg-purple-600' },
-      { key: 'ALL',  label: '全世代戰力總榜',   range: '已啟用總和',   badgeColor: 'bg-indigo-600' }
+      { key: 'gen9', label: '第九世代：帕底亞',   range: '#906 - #1025', badgeColor: 'bg-purple-600' }
     ];
 
     const TYPE_COLORS = {
@@ -629,11 +630,7 @@
         });
 
         const generationTabs = computed(() => {
-          const totalCount = Object.values(dbStore).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
           return GENERATIONS_META.map(meta => {
-            if (meta.key === 'ALL') {
-              return { ...meta, isLoaded: totalCount > 0, count: totalCount };
-            }
             const arr = dbStore[meta.key];
             const loaded = Array.isArray(arr) && arr.length > 0;
             return { ...meta, isLoaded: loaded, count: loaded ? arr.length : 0 };
@@ -650,12 +647,7 @@
         });
 
         const allPokemonList = computed(() => {
-          let list = [];
-          if (selectedGen.value === 'ALL') {
-            Object.values(dbStore).forEach(arr => { if (Array.isArray(arr)) list = list.concat(arr); });
-          } else {
-            list = dbStore[selectedGen.value] || [];
-          }
+          const list = dbStore[selectedGen.value] || [];
           return list.map(p => ({
             ...p,
             bst: p.stats.hp + p.stats.atk + p.stats.def + p.stats.spa + p.stats.spd + p.stats.spe
