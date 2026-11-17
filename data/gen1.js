@@ -42,6 +42,26 @@ window.POKEMON_DB.gen1 = [
     description: "背上的巨大花朵在吸收充足陽光後會散發出令人心情平靜的香氣，雨天過後香氣會變得更加濃郁。"
   },
   {
+    id: 4,
+    name: "小火龍",
+    enName: "Charmander",
+    types: ["火"],
+    category: "蜥蜴寶可夢",
+    stats: { hp: 39, atk: 52, def: 43, spa: 60, spd: 50, spe: 65 },
+    evolutions: [
+      { id: 4, name: "小火龍", condition: "初始型態" },
+      { id: 5, name: "火恐龍", condition: "Lv.16 進化" },
+      { id: 6, name: "噴火龍", condition: "Lv.36 進化" }
+    ],
+    moves: [
+      { name: "火花", type: "火", category: "特殊", power: 40, learnMethod: "Lv.4" },
+      { name: "龍息", type: "龍", category: "特殊", power: 60, learnMethod: "Lv.12" },
+      { name: "火焰牙", type: "火", category: "物理", power: 65, learnMethod: "Lv.19" },
+      { name: "噴射火焰", type: "火", category: "特殊", power: 90, learnMethod: "Lv.30" }
+    ],
+    description: "尾巴上的火焰代表牠的生命力，精力充沛時火焰會猛烈燃燒，若火焰熄滅生命也會隨之結束。"
+  },
+  {
     id: 6,
     name: "噴火龍",
     enName: "Charizard",
@@ -60,6 +80,26 @@ window.POKEMON_DB.gen1 = [
       { name: "龍爪", type: "龍", category: "物理", power: 80, learnMethod: "招式學習器" }
     ],
     description: "會噴出連巨岩都能融化的灼熱火焰，在空中飛翔尋找強大的對手，絕對不會對比自己弱小的對手吐火。"
+  },
+  {
+    id: 7,
+    name: "傑尼龜",
+    enName: "Squirtle",
+    types: ["水"],
+    category: "小龜寶可夢",
+    stats: { hp: 44, atk: 48, def: 65, spa: 50, spd: 64, spe: 43 },
+    evolutions: [
+      { id: 7, name: "傑尼龜", condition: "初始型態" },
+      { id: 8, name: "卡咪龜", condition: "Lv.16 進化" },
+      { id: 9, name: "水箭龜", condition: "Lv.36 進化" }
+    ],
+    moves: [
+      { name: "水槍", type: "水", category: "特殊", power: 40, learnMethod: "Lv.3" },
+      { name: "水之波動", type: "水", category: "特殊", power: 60, learnMethod: "Lv.15" },
+      { name: "縮入殼中", type: "水", category: "變化", power: null, learnMethod: "Lv.6" },
+      { name: "水流尾", type: "水", category: "物理", power: 90, learnMethod: "Lv.27" }
+    ],
+    description: "遇到危險時會將四肢縮進堅硬的甲殼裡保護自己，並從口中猛烈噴出高壓水柱進行反擊。"
   },
   {
     id: 9,
@@ -141,6 +181,60 @@ window.POKEMON_DB.gen1 = [
     description: "每天不吃下 400 公斤的食物就不會滿足，吃飽後就會立刻陷入沉睡，即使有小孩在牠肚子上跳躍也毫不在意。"
   },
   {
+    id: 144,
+    name: "急凍鳥",
+    enName: "Articuno",
+    types: ["冰", "飛行"],
+    category: "冰凍寶可夢",
+    stats: { hp: 90, atk: 85, def: 100, spa: 95, spd: 125, spe: 85 },
+    evolutions: [
+      { id: 144, name: "急凍鳥", condition: "無進化型態" }
+    ],
+    moves: [
+      { name: "暴風雪", type: "冰", category: "特殊", power: 110, learnMethod: "Lv.65" },
+      { name: "冰凍乾燥", type: "冰", category: "特殊", power: 70, learnMethod: "Lv.40" },
+      { name: "暴風", type: "飛行", category: "特殊", power: 110, learnMethod: "Lv.60" },
+      { name: "羽棲", type: "飛行", category: "變化", power: null, learnMethod: "Lv.50" }
+    ],
+    description: "擁有如水晶般半透明美麗羽翼的傳說鳥寶可夢，飛過之處會將空氣中的水分瞬間凍結並降下白雪。"
+  },
+  {
+    id: 145,
+    name: "閃電鳥",
+    enName: "Zapdos",
+    types: ["電", "飛行"],
+    category: "電擊寶可夢",
+    stats: { hp: 90, atk: 90, def: 85, spa: 125, spd: 90, spe: 100 },
+    evolutions: [
+      { id: 145, name: "閃電鳥", condition: "無進化型態" }
+    ],
+    moves: [
+      { name: "打雷", type: "電", category: "特殊", power: 110, learnMethod: "Lv.65" },
+      { name: "放電", type: "電", category: "特殊", power: 80, learnMethod: "Lv.40" },
+      { name: "熱風", type: "火", category: "特殊", power: 95, learnMethod: "招式學習器" },
+      { name: "羽棲", type: "飛行", category: "變化", power: null, learnMethod: "Lv.50" }
+    ],
+    description: "棲息在厚重雷雲中的傳說鳥寶可夢，拍動翅膀時會迸發出耀眼的閃電與震耳欲聾的雷鳴。"
+  },
+  {
+    id: 146,
+    name: "火焰鳥",
+    enName: "Moltres",
+    types: ["火", "飛行"],
+    category: "火焰寶可夢",
+    stats: { hp: 90, atk: 100, def: 90, spa: 125, spd: 85, spe: 90 },
+    evolutions: [
+      { id: 146, name: "火焰鳥", condition: "無進化型態" }
+    ],
+    moves: [
+      { name: "大字爆炎", type: "火", category: "特殊", power: 110, learnMethod: "Lv.65" },
+      { name: "燃盡", type: "火", category: "特殊", power: 130, learnMethod: "Lv.70" },
+      { name: "空氣斬", type: "飛行", category: "特殊", power: 75, learnMethod: "Lv.35" },
+      { name: "羽棲", type: "飛行", category: "變化", power: null, learnMethod: "Lv.50" }
+    ],
+    description: "全身燃燒著熊熊烈焰的傳說鳥寶可夢，據說只要牠現身的地方，春天就會比往年更早降臨。"
+  },
+  {
     id: 149,
     name: "快龍",
     enName: "Dragonite",
@@ -177,5 +271,23 @@ window.POKEMON_DB.gen1 = [
       { name: "自我再生", type: "一般", category: "變化", power: null, learnMethod: "Lv.56" }
     ],
     description: "透過重組夢幻基因而誕生的傳說寶可夢，擁有全寶可夢中最頂尖的超能力與特攻戰力。"
+  },
+  {
+    id: 151,
+    name: "夢幻",
+    enName: "Mew",
+    types: ["超能力"],
+    category: "新種寶可夢",
+    stats: { hp: 100, atk: 100, def: 100, spa: 100, spd: 100, spe: 100 },
+    evolutions: [
+      { id: 151, name: "夢幻", condition: "無進化型態" }
+    ],
+    moves: [
+      { name: "精神強念", type: "超能力", category: "特殊", power: 90, learnMethod: "Lv.60" },
+      { name: "波導彈", type: "格鬥", category: "特殊", power: 80, learnMethod: "Lv.50" },
+      { name: "變身", type: "一般", category: "變化", power: null, learnMethod: "Lv.10" },
+      { name: "詭計", type: "惡", category: "變化", power: null, learnMethod: "Lv.70" }
+    ],
+    description: "第一世代圖鑑壓軸的幻之寶可夢，體內蘊含所有寶可夢的遺傳基因，因此能夠學會任何招式學習器與秘傳技。"
   }
 ];
