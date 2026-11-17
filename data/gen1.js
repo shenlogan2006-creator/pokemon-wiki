@@ -1,5 +1,7 @@
 window.POKEMON_DB = window.POKEMON_DB || {};
+window.POKEMON_HYDRATORS = window.POKEMON_HYDRATORS || {};
 
+// 1. 手動精選的代表性第一世代寶可夢（包含完整進化鏈與招牌招式）
 window.POKEMON_DB.gen1 = [
   {
     id: 1,
@@ -291,3 +293,61 @@ window.POKEMON_DB.gen1 = [
     description: "第一世代圖鑑壓軸的幻之寶可夢，體內蘊含所有寶可夢的遺傳基因，因此能夠學會任何招式學習器與秘傳技。"
   }
 ];
+
+// 2. 第一世代 (#001 - #151) 完整圖鑑自動補全器（本地精選資料優先，其餘自動從 PokeAPI 補齊）
+window.POKEMON_HYDRATORS.gen1 = async function (onProgress) {
+  const TYPE_EN_TO_ZH = {
+    normal: '一般', fire: '火', water: '水', electric: '電', grass: '草', ice: '冰',
+    fighting: '格鬥', poison: '毒', ground: '地面', flying: '飛行', psychic: '超能力',
+    bug: '蟲', rock: '岩石', ghost: '幽靈', dragon: '龍', dark: '惡', steel: '鋼', fairy: '妖精'
+  };
+
+  const localMap = new Map((window.POKEMON_DB.gen1 || []).map(p => [p.id, p]));
+  const ids = Array.from({ length: 151 }, (_, i) => i + 1);
+  const missingIds = ids.filter(id => !localMap.has(id));
+
+  const batchSize = 30;
+  for (let i = 0; i < missingIds.length; i += batchSize) {
+    const batch = missingIds.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(async (id) => {
+      const [pokeRes, specRes] = await Promise.all([
+        fetch(`https://pokeapi.co/api/v2/pokemon/${id}`).then(r => r.json()),
+        fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`).then(r => r.json())
+      ]);
+      const zhNameObj = specRes.names.find(n => n.language.name === 'zh-Hant') || specRes.names.find(n => n.language.name === 'zh-Hans');
+      const zhGenusObj = specRes.genera.find(g => g.language.name === 'zh-Hant') || specRes.genera.find(g => g.language.name === 'zh-Hans');
+      const zhFlavorObj = specRes.flavor_text_entries.find(f => f.language.name === 'zh-Hant') || specRes.flavor_text_entries.find(f => f.language.name === 'zh-Hans');
+
+      const statsObj = { hp: 50, atk: 50, def: 50, spa: 50, spd: 50, spe: 50 };
+      pokeRes.stats.forEach(s => {
+        const mapKey = { hp: 'hp', attack: 'atk', defense: 'def', 'special-attack': 'spa', 'special-defense': 'spd', speed: 'spe' }[s.stat.name];
+        if (mapKey) statsObj[mapKey] = s.base_stat;
+      });
+
+      const sampleMoves = pokeRes.moves.slice(0, 4).map(m => ({
+        name: m.move.name.replace(/-/g, ' ').toUpperCase(),
+        type: TYPE_EN_TO_ZH[pokeRes.types[0].type.name] || '一般',
+        category: '特殊',
+        power: 80,
+        learnMethod: '等級 / 招式機'
+      }));
+
+      return {
+        id,
+        name: zhNameObj ? zhNameObj.name : pokeRes.name,
+        enName: pokeRes.name.charAt(0).toUpperCase() + pokeRes.name.slice(1),
+        types: pokeRes.types.map(t => TYPE_EN_TO_ZH[t.type.name] || '一般'),
+        category: zhGenusObj ? zhGenusObj.genus : '關都寶可夢',
+        stats: statsObj,
+        evolutions: [{ id, name: zhNameObj ? zhNameObj.name : pokeRes.name, condition: '關都圖鑑登錄' }],
+        moves: sampleMoves.length ? sampleMoves : [{ name: '撞擊', type: '一般', category: '物理', power: 40, learnMethod: 'Lv.1' }],
+        description: zhFlavorObj ? zhFlavorObj.flavor_text.replace(/\s+/g, '') : '關都地區發現的寶可夢。'
+      };
+    }));
+
+    results.forEach(item => localMap.set(item.id, item));
+    const updatedList = Array.from(localMap.values()).sort((a, b) => a.id - b.id);
+    window.POKEMON_DB.gen1 = updatedList;
+    if (typeof onProgress === 'function') onProgress(updatedList);
+  }
+};
