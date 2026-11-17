@@ -40,7 +40,7 @@ index.html 內建 GENERATIONS_META 完整 9 世代註冊表，並自動偵測 wi
 一般型態：https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{id}.png
 異色型態：https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/{id}.png
 戰力排行自動計算 (Power Ranking)：
-支援依「圖鑑編號 (ID)」、「種族值總和 (BST)」及六項單項種族值（HP / 攻擊 / 防禦 / 特攻 / 特防 / 速度）排序。
+支援依「種族值總和 (BST)」及六項單項種族值（HP / 攻擊 / 防禦 / 特攻 / 特防 / 速度）排序。
 計算鐵則：AI 不需手動計算 bst，前端會自動加總 stats 六維數值。
 4. 寶可夢資料結構規範 (Data Schema)
 所有 data/gen{N}.js 檔案開頭必須宣告 window.POKEMON_DB = window.POKEMON_DB || {};，並將陣列賦值給 window.POKEMON_DB.gen{N}。每筆資料必須嚴格符合以下 Schema：
