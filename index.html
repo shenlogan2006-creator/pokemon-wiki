@@ -1,78 +1,483 @@
-# AGENTS.md - 寶可夢全世代圖鑑與戰力分析 Wiki (Gen 1 - Gen 9 模組化架構)
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PokéDex & Battle Wiki - 全世代寶可夢圖鑑與戰力分析</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .poke-float:hover img {
+      animation: float 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+  <div id="app">
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-600 border-4 border-white flex items-center justify-center shadow">
+            <div class="w-3 h-3 rounded-full bg-white"></div>
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold tracking-tight">PokéDex & Battle Wiki</h1>
+            <p class="text-xs text-slate-400">全 9 世代模組化圖鑑架構 • 異色切換 • 進化鏈 • 戰力排行</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="hidden sm:inline-block text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+            已啟用模組：<strong class="text-white">{{ loadedGenCount }}</strong> / 9 世代
+          </span>
+          <button @click="globalShiny = !globalShiny"
+            :class="[
+              'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow',
+              globalShiny
+                ? 'bg-amber-400 text-slate-900 ring-2 ring-amber-200'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+            ]">
+            <span>✨</span>
+            <span>{{ globalShiny ? '異色型態：開啟' : '異色型態：關閉' }}</span>
+          </button>
+        </div>
+      </div>
+      <div class="bg-slate-800 border-t border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto gap-2 py-2.5">
+          <button v-for="gen in generationTabs" :key="gen.key"
+            @click="gen.isLoaded ? (selectedGen = gen.key) : null"
+            :disabled="!gen.isLoaded"
+            :title="gen.isLoaded ? `${gen.label} (${gen.range})` : '尚未載入此世代模組，請依 AGENTS.md 擴充'"
+            :class="[
+              'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2',
+              !gen.isLoaded
+                ? 'bg-slate-800/50 text-slate-500 border border-slate-700/60 cursor-not-allowed'
+                : selectedGen === gen.key
+                  ? `${gen.badgeColor} text-white shadow`
+                  : 'text-slate-200 bg-slate-700/60 hover:bg-slate-700'
+            ]">
+            <span>{{ gen.label }}</span>
+            <span v-if="gen.isLoaded" class="text-[11px] opacity-90 bg-black/25 px-1.5 py-0.5 rounded">
+              {{ gen.key === 'ALL' ? `${gen.count} 隻` : gen.range }}
+            </span>
+            <span v-else class="text-[10px] bg-slate-900/60 text-slate-500 px-1.5 py-0.5 rounded">
+              待擴充
+            </span>
+          </button>
+        </div>
+      </div>
+    </header>
 
-## 1. 專案目的 (Project Purpose)
-本專案是一個可跨世代擴充的「寶可夢圖鑑與對戰戰力分析網站」，規劃涵蓋本傳已發售之 **第一世代至第九世代（全國圖鑑 #001 – #1025）** 共 9 大標準資料模組，並預留第十世代（《寶可夢 風／波》）之擴充接口。
-核心設計原則為**「資料驅動（Data-Driven）與隨插即用（Plug-and-Play）」**：透過制定統一的資料 Schema、CDN 圖片公式與世代註冊表，AI 每次擴充新世代時只需產出對應的 `data/gen{N}.js` 並引入 `<script>`，前端即會自動解鎖該世代頁籤、異色切換、進化鏈流程圖、招式表與跨世代戰力排行榜，無需重寫任何 UI 邏輯。
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        <div class="md:col-span-4">
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">搜尋寶可夢 / 招式</label>
+          <input v-model="searchQuery" type="text" placeholder="輸入名稱、編號或招式 (如: 噴射火焰)..."
+            class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500" />
+        </div>
+        <div class="md:col-span-3">
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">屬性篩選</label>
+          <select v-model="selectedType"
+            class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option value="ALL">全部屬性 (18種)</option>
+            <option v-for="t in allTypes" :key="t" :value="t">{{ t }}屬性</option>
+          </select>
+        </div>
+        <div class="md:col-span-5">
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">戰力排行 / 排序依據</label>
+          <div class="flex flex-wrap gap-1.5">
+            <button v-for="opt in sortOptions" :key="opt.key"
+              @click="sortBy = opt.key"
+              :class="[
+                'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                sortBy === opt.key
+                  ? 'bg-red-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              ]">
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-4 px-1 text-sm text-slate-500">
+        <div>
+          目前檢視：<strong class="text-slate-800">{{ currentGenInfo.label }}</strong>（{{ currentGenInfo.range }}），共顯示 <strong class="text-slate-800">{{ processedPokemon.length }}</strong> 隻寶可夢
+          <span v-if="sortBy !== 'id'" class="ml-2 inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+            🏆 戰力排行榜模式 ({{ currentSortLabel }})
+          </span>
+        </div>
+      </div>
+    </section>
 
-## 2. 目標模組藍圖與目錄結構 (Target Modules & File Structure)
-專案採用純靜態網頁架構（Zero-Build），直接部署於 GitHub Pages：
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 pb-16">
+      <div v-if="processedPokemon.length === 0" class="text-center py-20 bg-white rounded-2xl border border-slate-200">
+        <p class="text-slate-400 text-lg">找不到符合條件的寶可夢，請嘗試其他關鍵字或屬性。</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div v-for="(poke, index) in processedPokemon" :key="poke.id"
+          @click="openModal(poke)"
+          class="poke-float cursor-pointer bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col relative group">
+          <div v-if="sortBy !== 'id'"
+            :class="[
+              'absolute top-3 left-3 z-10 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm',
+              index === 0 ? 'bg-amber-400 text-slate-900' :
+              index === 1 ? 'bg-slate-300 text-slate-800' :
+              index === 2 ? 'bg-amber-700 text-white' :
+              'bg-slate-800/80 text-white'
+            ]">
+            #{{ index + 1 }} 戰力
+          </div>
+          <div class="pt-4 px-5 flex justify-between items-center">
+            <span class="text-xs font-mono font-bold text-slate-400">
+              {{ sortBy === 'id' ? `#${String(poke.id).padStart(4, '0')}` : '' }}
+            </span>
+            <span class="text-xs font-mono font-bold text-slate-400">
+              No.{{ String(poke.id).padStart(4, '0') }}
+            </span>
+          </div>
+          <div class="relative h-44 flex items-center justify-center p-3 bg-gradient-to-b from-slate-50 to-white">
+            <img :src="getArtworkUrl(poke.id, globalShiny)" :alt="poke.name"
+              class="h-36 w-36 object-contain drop-shadow-md transition-transform duration-300" loading="lazy" />
+            <span v-if="globalShiny" class="absolute bottom-2 right-4 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+              ✨ 異色
+            </span>
+          </div>
+          <div class="p-5 pt-2 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex items-baseline justify-between">
+                <h2 class="text-xl font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">
+                  {{ poke.name }}
+                </h2>
+                <span class="text-xs text-slate-400 font-medium">{{ poke.enName }}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">{{ poke.category }}</p>
+              <div class="flex gap-1.5 mt-3">
+                <span v-for="t in poke.types" :key="t"
+                  :class="['px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-sm', getTypeColor(t)]">
+                  {{ t }}
+                </span>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100">
+              <div class="flex justify-between items-center text-xs mb-1.5">
+                <span class="text-slate-500 font-semibold">
+                  {{ sortBy === 'id' || sortBy === 'bst' ? '種族值總和 (BST)' : currentSortLabel }}
+                </span>
+                <span class="font-mono font-black text-sm text-slate-800">
+                  {{ sortBy === 'id' || sortBy === 'bst' ? poke.bst : poke.stats[sortBy] }}
+                </span>
+              </div>
+              <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500"
+                  :class="getStatBarColor(sortBy === 'id' || sortBy === 'bst' ? poke.bst / 6 : poke.stats[sortBy])"
+                  :style="{ width: getStatBarWidth(sortBy === 'id' || sortBy === 'bst' ? poke.bst : poke.stats[sortBy], sortBy === 'id' || sortBy === 'bst' ? 720 : 200) }">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
 
-```text
-/
-├── index.html          # 核心 UI、自動模組偵測器、戰力排行演算法與詳情彈窗
-├── AGENTS.md           # AI 開發與跨世代擴充規範書（本文件）
-└── data/
-    ├── gen1.js         # [已實作] 第一世代：關都地區 (#001 - #151)
-    ├── gen2.js         # [目標模組] 第二世代：城都地區 (#152 - #251)
-    ├── gen3.js         # [目標模組] 第三世代：豐緣地區 (#252 - #386)
-    ├── gen4.js         # [目標模組] 第四世代：神奧地區 (#387 - #493)
-    ├── gen5.js         # [目標模組] 第五世代：合眾地區 (#494 - #649)
-    ├── gen6.js         # [目標模組] 第六世代：卡洛斯地區 (#650 - #721)
-    ├── gen7.js         # [目標模組] 第七世代：阿羅拉地區 (#722 - #809)
-    ├── gen8.js         # [目標模組] 第八世代：伽勒爾 / 洗翠地區 (#810 - #905)
-    └── gen9.js         # [目標模組] 第九世代：帕底亞地區 (#906 - #1025)
-各世代標準註冊參數對照表:
-模組鍵值 (key),檔案路徑,顯示名稱 (label),圖鑑範圍 (range),主題代表色 (badgeColor)
-gen1,data/gen1.js,第一世代：關都,#001 - #151,bg-red-600
-gen2,data/gen2.js,第二世代：城都,#152 - #251,bg-amber-600
-gen3,data/gen3.js,第三世代：豐緣,#252 - #386,bg-emerald-600
-gen4,data/gen4.js,第四世代：神奧,#387 - #493,bg-sky-600
-gen5,data/gen5.js,第五世代：合眾,#494 - #649,bg-slate-700
-gen6,data/gen6.js,第六世代：卡洛斯,#650 - #721,bg-blue-600
-gen7,data/gen7.js,第七世代：阿羅拉,#722 - #809,bg-orange-500
-gen8,data/gen8.js,第八世代：伽勒爾,#810 - #905,bg-rose-600
-gen9,data/gen9.js,第九世代：帕底亞,#906 - #1025,bg-purple-600
-3. 自動化運算與視覺規則 (Automation & UI Rules)
-隨插即用偵測機制 (Auto-Detection)：
-index.html 內建 GENERATIONS_META 完整 9 世代註冊表，並自動偵測 window.POKEMON_DB.gen{N} 是否已載入資料。
-已有資料的模組自動啟用並顯示收錄數量；尚未建立資料檔的模組顯示為 待擴充 鎖定狀態，確保架構藍圖完整且不報錯。
-異色型態切換 (Shiny Toggle)：
-嚴禁在資料檔中寫死圖片網址，前端統一透過 PokeAPI 官方 CDN 公式動態拼接：
-一般型態：https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{id}.png
-異色型態：https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/{id}.png
-戰力排行自動計算 (Power Ranking)：
-支援依「圖鑑編號 (ID)」、「種族值總和 (BST)」及六項單項種族值（HP / 攻擊 / 防禦 / 特攻 / 特防 / 速度）排序。
-計算鐵則：AI 不需手動計算 bst，前端會自動加總 stats 六維數值。
-4. 寶可夢資料結構規範 (Data Schema)
-所有 data/gen{N}.js 檔案開頭必須宣告 window.POKEMON_DB = window.POKEMON_DB || {};，並將陣列賦值給 window.POKEMON_DB.gen{N}。每筆資料必須嚴格符合以下 Schema：
-JavaScript
-{
-  id: 6,                            // [必填] 全國圖鑑編號 (整數，決定立繪 URL 與排序)
-  name: "噴火龍",                    // [必填] 繁體中文名稱
-  enName: "Charizard",              // [必填] 英文名稱
-  types: ["火", "飛行"],             // [必填] 1~2個屬性（限用標準繁中屬性白名單）
-  category: "火焰寶可夢",            // [必填] 圖鑑分類
-  stats: {                          // [必填] 六維基礎種族值（整數）
-    hp: 78, atk: 84, def: 78, spa: 109, spd: 85, spe: 100
-  },
-  evolutions: [                     // [必填] 完整進化鏈陣列（無進化者填寫包含自己的單一物件）
-    { id: 4, name: "小火龍", condition: "初始型態" },
-    { id: 5, name: "火恐龍", condition: "Lv.16 進化" },
-    { id: 6, name: "噴火龍", condition: "Lv.36 進化" }
-  ],
-  moves: [                          // [必填] 3~5 個代表性招式
-    { name: "噴射火焰", type: "火", category: "特殊", power: 90, learnMethod: "Lv.30" },
-    { name: "空氣斬", type: "飛行", category: "特殊", power: 75, learnMethod: "進化習得" },
-    { name: "龍之舞", type: "龍", category: "變化", power: null, learnMethod: "招式學習器" }
-  ],
-  description: "會噴出連巨岩都能融化的灼熱火焰，有時會在無意間引發森林大火。"
-}
-標準白名單 (Valid Enum Values)
-屬性 (types / move.type)：一般, 火, 水, 電, 草, 冰, 格鬥, 毒, 地面, 飛行, 超能力, 蟲, 岩石, 幽靈, 龍, 惡, 鋼, 妖精
-招式分類 (move.category)：物理, 特殊, 變化（變化招式 power 填 null）
-5. AI 擴充新世代 SOP (Step-by-Step Guide for AI)
-當使用者要求「新增第 N 世代（例如：實作 gen2 城都地區）」或「擴充現有世代寶可夢」時，AI 必須執行以下標準作業程序：
-建立資料模組：在 data/ 目錄下建立 gen{N}.js（對照第 2 節表格確認圖鑑編號範圍），寫入符合第 4 節 Schema 的寶可夢陣列。
-掛載腳本：打開 index.html，在 <body> 底部的 <!-- 世代資料模組掛載區 --> 加入一行 <script src="./data/gen{N}.js"></script>（因 GENERATIONS_META 已預先註冊 9 大模組，引入後頁籤將自動解鎖）。
-禁止更動核心 UI：嚴禁修改 index.html 的排版結構、排行榜計算邏輯、異色切換公式與 CSS 樣式。
-跨世代連動檢查：若新世代寶可夢與舊世代有進化關聯（如皮丘 #172 ➔ 皮卡丘 #025），evolutions 陣列中務必填寫正確的全國圖鑑 id，以確保進化鏈縮圖與點擊跳轉功能正常運作。
+    <div v-if="activePokemon" @click.self="activePokemon = null"
+      class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+        <div class="relative bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 sm:p-8 rounded-t-3xl">
+          <button @click="activePokemon = null"
+            class="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold">
+            ✕
+          </button>
+          <div class="flex flex-col sm:flex-row items-center gap-6">
+            <div class="relative flex flex-col items-center">
+              <div class="w-44 h-44 bg-white/10 rounded-2xl p-3 flex items-center justify-center">
+                <img :src="getArtworkUrl(activePokemon.id, modalShiny)" :alt="activePokemon.name"
+                  class="w-36 h-36 object-contain drop-shadow-lg" />
+              </div>
+              <button @click="modalShiny = !modalShiny"
+                :class="[
+                  'mt-2.5 px-3 py-1 rounded-full text-xs font-bold transition-all',
+                  modalShiny ? 'bg-amber-400 text-slate-900' : 'bg-white/15 text-white hover:bg-white/25'
+                ]">
+                {{ modalShiny ? '✨ 目前為異色型態 (點擊切回)' : '切換查看異色型態 ✨' }}
+              </button>
+            </div>
+            <div class="flex-1 text-center sm:text-left">
+              <div class="flex items-center justify-center sm:justify-start gap-2 text-slate-400 font-mono text-sm font-bold">
+                <span>No.{{ String(activePokemon.id).padStart(4, '0') }}</span>
+                <span>•</span>
+                <span>{{ activePokemon.category }}</span>
+              </div>
+              <h2 class="text-3xl font-black mt-1">
+                {{ activePokemon.name }}
+                <span class="text-lg font-normal text-slate-400 ml-1">{{ activePokemon.enName }}</span>
+              </h2>
+              <div class="flex justify-center sm:justify-start gap-2 mt-3">
+                <span v-for="t in activePokemon.types" :key="t"
+                  :class="['px-3 py-1 rounded-lg text-xs font-bold text-white shadow', getTypeColor(t)]">
+                  {{ t }}屬性
+                </span>
+              </div>
+              <p class="mt-4 text-sm text-slate-300 leading-relaxed bg-black/20 p-3.5 rounded-xl">
+                {{ activePokemon.description }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 sm:p-8 space-y-8">
+          <div>
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">
+              🧬 進化鏈 (Evolution Chain)
+            </h3>
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-center gap-3 sm:gap-6">
+              <template v-for="(evo, idx) in activePokemon.evolutions" :key="evo.id">
+                <div @click="jumpToPokemon(evo.id)"
+                  :class="[
+                    'flex flex-col items-center p-3 rounded-xl transition-all cursor-pointer',
+                    evo.id === activePokemon.id ? 'bg-white shadow-md ring-2 ring-red-500' : 'hover:bg-white/80'
+                  ]">
+                  <img :src="getArtworkUrl(evo.id, modalShiny)" :alt="evo.name" class="w-20 h-20 object-contain" />
+                  <span class="text-xs font-mono text-slate-400 mt-1">#{{ String(evo.id).padStart(4, '0') }}</span>
+                  <span class="text-sm font-bold text-slate-800">{{ evo.name }}</span>
+                  <span class="mt-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                    {{ evo.condition }}
+                  </span>
+                </div>
+                <div v-if="idx < activePokemon.evolutions.length - 1" class="text-slate-400 font-black text-xl">
+                  ➔
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-black uppercase tracking-wider text-slate-400">
+                📊 六維基礎種族值 (Base Stats)
+              </h3>
+              <span class="text-sm font-black text-red-600 bg-red-50 px-3 py-1 rounded-full">
+                種族值總和 (BST)：{{ activePokemon.bst }}
+              </span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+              <div v-for="stat in statDefinitions" :key="stat.key" class="grid grid-cols-12 items-center gap-3 text-sm">
+                <span class="col-span-3 sm:col-span-2 font-bold text-slate-600">{{ stat.label }}</span>
+                <span class="col-span-2 sm:col-span-1 font-mono font-black text-right text-slate-900">
+                  {{ activePokemon.stats[stat.key] }}
+                </span>
+                <div class="col-span-7 sm:col-span-9 bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-500"
+                    :class="getStatBarColor(activePokemon.stats[stat.key])"
+                    :style="{ width: getStatBarWidth(activePokemon.stats[stat.key], 200) }">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">
+              ⚔️ 代表招式列表 (Signature Moves)
+            </h3>
+            <div class="overflow-hidden border border-slate-200 rounded-2xl">
+              <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-bold text-slate-600">招式名稱</th>
+                    <th class="px-4 py-3 text-left font-bold text-slate-600">屬性</th>
+                    <th class="px-4 py-3 text-left font-bold text-slate-600">分類</th>
+                    <th class="px-4 py-3 text-right font-bold text-slate-600">威力</th>
+                    <th class="px-4 py-3 text-right font-bold text-slate-600">習得方式</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 bg-white">
+                  <tr v-for="move in activePokemon.moves" :key="move.name" class="hover:bg-slate-50">
+                    <td class="px-4 py-3 font-bold text-slate-900">{{ move.name }}</td>
+                    <td class="px-4 py-3">
+                      <span :class="['px-2 py-0.5 rounded text-xs font-bold text-white', getTypeColor(move.type)]">
+                        {{ move.type }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">{{ move.category }}</td>
+                    <td class="px-4 py-3 text-right font-mono font-bold text-slate-800">
+                      {{ move.power ? move.power : '—' }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-xs text-slate-500">{{ move.learnMethod }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./data/gen1.js"></script>
+  <!-- <script src="./data/gen2.js"></script> -->
+  <!-- <script src="./data/gen3.js"></script> -->
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    const GENERATIONS_META = [
+      { key: 'ALL',  label: '全世代戰力總榜',   range: '#001 - #1025', badgeColor: 'bg-indigo-600' },
+      { key: 'gen1', label: '第一世代：關都',     range: '#001 - #151',  badgeColor: 'bg-red-600' },
+      { key: 'gen2', label: '第二世代：城都',     range: '#152 - #251',  badgeColor: 'bg-amber-600' },
+      { key: 'gen3', label: '第三世代：豐緣',     range: '#252 - #386',  badgeColor: 'bg-emerald-600' },
+      { key: 'gen4', label: '第四世代：神奧',     range: '#387 - #493',  badgeColor: 'bg-sky-600' },
+      { key: 'gen5', label: '第五世代：合眾',     range: '#494 - #649',  badgeColor: 'bg-slate-700' },
+      { key: 'gen6', label: '第六世代：卡洛斯',   range: '#650 - #721',  badgeColor: 'bg-blue-600' },
+      { key: 'gen7', label: '第七世代：阿羅拉',   range: '#722 - #809',  badgeColor: 'bg-orange-500' },
+      { key: 'gen8', label: '第八世代：伽勒爾',   range: '#810 - #905',  badgeColor: 'bg-rose-600' },
+      { key: 'gen9', label: '第九世代：帕底亞',   range: '#906 - #1025', badgeColor: 'bg-purple-600' }
+    ];
+
+    const TYPE_COLORS = {
+      '一般': 'bg-stone-400', '火': 'bg-orange-500', '水': 'bg-blue-500',
+      '電': 'bg-yellow-400 !text-slate-900', '草': 'bg-emerald-500', '冰': 'bg-cyan-400 !text-slate-900',
+      '格鬥': 'bg-red-700', '毒': 'bg-purple-600', '地面': 'bg-amber-600',
+      '飛行': 'bg-indigo-400', '超能力': 'bg-pink-500', '蟲': 'bg-lime-600',
+      '岩石': 'bg-yellow-700', '幽靈': 'bg-violet-800', '龍': 'bg-indigo-700',
+      '惡': 'bg-neutral-800', '鋼': 'bg-slate-500', '妖精': 'bg-rose-400'
+    };
+
+    createApp({
+      setup() {
+        const selectedGen = ref('gen1');
+        const globalShiny = ref(false);
+        const searchQuery = ref('');
+        const selectedType = ref('ALL');
+        const sortBy = ref('id');
+        const activePokemon = ref(null);
+        const modalShiny = ref(false);
+
+        const allTypes = Object.keys(TYPE_COLORS);
+
+        const sortOptions = [
+          { key: 'id',  label: '圖鑑編號' },
+          { key: 'bst', label: '種族值總和 (BST)' },
+          { key: 'hp',  label: 'HP' },
+          { key: 'atk', label: '攻擊' },
+          { key: 'def', label: '防禦' },
+          { key: 'spa', label: '特攻' },
+          { key: 'spd', label: '特防' },
+          { key: 'spe', label: '速度' }
+        ];
+
+        const statDefinitions = [
+          { key: 'hp',  label: 'HP 生命' },
+          { key: 'atk', label: '攻擊 Atk' },
+          { key: 'def', label: '防禦 Def' },
+          { key: 'spa', label: '特攻 SpA' },
+          { key: 'spd', label: '特防 SpD' },
+          { key: 'spe', label: '速度 Spe' }
+        ];
+
+        const generationTabs = computed(() => {
+          const db = window.POKEMON_DB || {};
+          const totalCount = Object.values(db).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+          return GENERATIONS_META.map(meta => {
+            if (meta.key === 'ALL') {
+              return { ...meta, isLoaded: totalCount > 0, count: totalCount };
+            }
+            const arr = db[meta.key];
+            const loaded = Array.isArray(arr) && arr.length > 0;
+            return { ...meta, isLoaded: loaded, count: loaded ? arr.length : 0 };
+          });
+        });
+
+        const loadedGenCount = computed(() => {
+          return generationTabs.value.filter(g => g.key !== 'ALL' && g.isLoaded).length;
+        });
+
+        const currentGenInfo = computed(() => {
+          return GENERATIONS_META.find(g => g.key === selectedGen.value) || GENERATIONS_META[1];
+        });
+
+        const currentSortLabel = computed(() => {
+          const found = sortOptions.find(o => o.key === sortBy.value);
+          return found ? found.label : '';
+        });
+
+        const allPokemonList = computed(() => {
+          const db = window.POKEMON_DB || {};
+          let list = [];
+          if (selectedGen.value === 'ALL') {
+            Object.values(db).forEach(arr => { if (Array.isArray(arr)) list = list.concat(arr); });
+          } else {
+            list = db[selectedGen.value] || [];
+          }
+          return list.map(p => ({
+            ...p,
+            bst: p.stats.hp + p.stats.atk + p.stats.def + p.stats.spa + p.stats.spd + p.stats.spe
+          }));
+        });
+
+        const processedPokemon = computed(() => {
+          const q = searchQuery.value.trim().toLowerCase();
+          let filtered = allPokemonList.value.filter(p => {
+            const matchType = selectedType.value === 'ALL' || p.types.includes(selectedType.value);
+            const matchQuery = !q ||
+              p.name.toLowerCase().includes(q) ||
+              p.enName.toLowerCase().includes(q) ||
+              String(p.id).includes(q) ||
+              p.moves.some(m => m.name.toLowerCase().includes(q));
+            return matchType && matchQuery;
+          });
+
+          return [...filtered].sort((a, b) => {
+            if (sortBy.value === 'id') return a.id - b.id;
+            if (sortBy.value === 'bst') return b.bst - a.bst;
+            return b.stats[sortBy.value] - a.stats[sortBy.value];
+          });
+        });
+
+        const getArtworkUrl = (id, isShiny) => {
+          const base = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+          return isShiny ? `${base}/shiny/${id}.png` : `${base}/${id}.png`;
+        };
+
+        const getTypeColor = (type) => TYPE_COLORS[type] || 'bg-slate-500';
+        const getStatBarWidth = (val, max) => `${Math.min(100, Math.round((val / max) * 100))}%`;
+        const getStatBarColor = (val) => {
+          if (val >= 120) return 'bg-emerald-500';
+          if (val >= 90)  return 'bg-blue-500';
+          if (val >= 65)  return 'bg-amber-400';
+          return 'bg-rose-400';
+        };
+
+        const openModal = (poke) => {
+          activePokemon.value = poke;
+          modalShiny.value = globalShiny.value;
+        };
+
+        const jumpToPokemon = (targetId) => {
+          const db = window.POKEMON_DB || {};
+          for (const arr of Object.values(db)) {
+            const found = arr.find(p => p.id === targetId);
+            if (found) {
+              activePokemon.value = {
+                ...found,
+                bst: found.stats.hp + found.stats.atk + found.stats.def + found.stats.spa + found.stats.spd + found.stats.spe
+              };
+              return;
+            }
+          }
+        };
+
+        return {
+          generationTabs, loadedGenCount, currentGenInfo, selectedGen, globalShiny,
+          searchQuery, selectedType, sortBy, allTypes, sortOptions, statDefinitions,
+          currentSortLabel, processedPokemon, activePokemon, modalShiny,
+          getArtworkUrl, getTypeColor, getStatBarWidth, getStatBarColor,
+          openModal, jumpToPokemon
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
